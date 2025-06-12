@@ -1,0 +1,53 @@
+services:
+  back-end:
+    build:
+      context: .
+      dockerfile: ./back-end/Dockerfile
+    restart: on-failure
+    depends_on:
+      - postgres
+    volumes:
+      - ./back-end:/home/root/app
+      - ./back-end/uploads:/home/root/app/logs
+    ports:
+      - 3000:3000
+    env_file:
+      - ./back-end/.env
+    networks:
+      - internal
+
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  front-end:
+    build:
+      context: .
+      dockerfile: ./front-end/Dockerfile
+    restart: on-failure
+    depends_on:
+      - back-end
+    ports:
+      - 80:80
+    volumes:
+      - ./front-end:/home/root/app
+    env_file:
+      - ./front-end/.env
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres:
