@@ -8,7 +8,7 @@ services:
       - postgres
     volumes:
       - ./back-end:/home/root/app
-      - ./back-end/uploads:/home/root/app/logs
+      - private_node_modules:/home/root/app/node_modules
     ports:
       - 3000:3000
     env_file:
@@ -38,10 +38,20 @@ services:
       - back-end
     ports:
       - 80:80
-    volumes:
-      - ./front-end:/home/root/app
     env_file:
       - ./front-end/.env
+    networks:
+      - internal
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    ports:
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP/gRPC
+      - "4318:4318"    # OTLP/HTTP
     networks:
       - internal
 
@@ -51,3 +61,4 @@ networks:
 
 volumes:
   postgres:
+  private_node_modules:
