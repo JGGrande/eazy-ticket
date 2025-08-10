@@ -1,12 +1,18 @@
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
+import { faker } from 'https://cdn.jsdelivr.net/npm/@faker-js/faker/+esm';
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+
+const TOTAL_USER = 200;
+const TOTAL_TICKETS = 50;
 
 export const options = {
   scenarios: {
     load: {
-      executor: "shared-iterations",
-      vus: 100,
-      iterations: 100,
+      // executor: "shared-iterations",
+      executor: "per-vu-iterations",
+      vus: TOTAL_USER,
+      iterations: 1, 
       maxDuration: "60s",
     },
   },
@@ -14,30 +20,24 @@ export const options = {
 
 const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
 
-const eventBody = {
-  name: "Brinfu",
-  description: "Maior evento DEV das Faculdades de Umuarama",
-  initialDate: "2025-08-18T03:00:00.000Z",
-  finalDate:   "2025-08-20T03:00:00.000Z",
-  location:    "Umuarama - PR",
-  maxTickets:  200,
-  ticketPrice: 20,
-};
-
-const regBody = {
-  name: "Pessoa Dev",
-  email: "pessoa.dev@google.com",
-  password: "admin123",
-};
-
 const paymentMethods = ["credit_card", "debit_card", "pix"];
 
-export function setup() {
+function getToken() {
   const adminUser =  {
     name: "Admin",
     email: "admin.dev@google.com",
     password: "admin123",
   };
+
+  const adminLogin = http.post(
+    `${BASE_URL}/auth/customer/login`, 
+    JSON.stringify(adminUser), 
+    { headers: { "Content-Type": "application/json" } }
+  );
+
+  if (adminLogin.status === 200) {
+    return adminLogin.json("token");
+  }
 
   const adminRes = http.post(
     `${BASE_URL}/auth/customer/register`,
@@ -45,12 +45,36 @@ export function setup() {
     { headers: { "Content-Type": "application/json" } }
   );
 
-  check(adminRes, {
-    "admin created": (r) => r.status === 201 || r.status === 200,
-    "admin has token":  (r) => r.json("token") !== undefined,
+  return adminRes.json("token");
+}
+
+export function setup() {
+  const adminToken = getToken();
+
+  check(adminToken, {
+    "admin token received": (t) => typeof t === "string",
   });
 
-  const adminToken = adminRes.json("token");
+  const oneDayInMilliseconds = 24 * 60 * 60 * 1000; // 1 day in milliseconds
+  const threeDaysInMilliseconds = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
+
+  const initialDate = new Date(
+    Date.now() + oneDayInMilliseconds
+  ).toISOString();
+
+  const finalDate = new Date(
+    Date.now() + threeDaysInMilliseconds
+  ).toISOString();
+
+  const eventBody = {
+    name: faker.company.name(),
+    description: faker.lorem.sentence(),
+    initialDate,
+    finalDate,
+    location: `${faker.location.city()} - ${faker.location.state({ abbreviated: true })}`,
+    maxTickets:  TOTAL_TICKETS,
+    ticketPrice: faker.number.int({ min: 10, max: 100 }),
+  };
 
   const res = http.post(`${BASE_URL}/events`, JSON.stringify(eventBody), {
     headers: {
@@ -59,10 +83,13 @@ export function setup() {
     },
   });
 
+  // console.log('Response:', JSON.stringify(res.body))
+
   check(res, {
     "event created: status 201": (r) => r.status === 201 || r.status === 200,
     "event has id":           (r) => r.json("id") !== undefined,
   });
+
   const createdId = res.json("id");
   return { eventId: createdId };
 }
@@ -86,17 +113,23 @@ export default function(data) {
       "home ok": (r) => r.status === 200,
     });
 
-    const randomEmail = `user${Math.floor(Math.random() * 10000)}@dev.com`;
+    const user = {
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    }
 
     const r2 = http.post(
       `${BASE_URL}/auth/customer/register`,
-      JSON.stringify({ ...regBody, email: randomEmail }),
+      JSON.stringify(user),
       { headers: { "Content-Type": "application/json" } }
     );
+
     check(r2, {
-      "register created":     (r) => r.status === 201 || r.status === 200,
-      "got token":            (r) => typeof r.json("token") === "string",
+      "register created": (r) => r.status === 201 || r.status === 200,
+      "got token": (r) => typeof r.json("token") === "string",
     });
+
     token = r2.json("token");
 
     const authHeaders = {
@@ -107,18 +140,20 @@ export default function(data) {
     };
 
     const r3 = http.get(`${BASE_URL}/events`, authHeaders);
+
     check(r3, {
       "home (autenticado) ok": (r) => r.status === 200,
     });
 
     const r4 = http.get(`${BASE_URL}/events/${eventId}`, authHeaders);
+
     check(r4, {
       "event found": (r) => r.status === 200,
       "correct id":  (r) => r.json("id") == eventId,
     });
 
-    const ticketCount = Math.floor(Math.random() * 5) + 1;
-    const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
+    const ticketCount = faker.number.int({ min: 1, max: 5 });
+    const paymentMethod = faker.helpers.arrayElement(paymentMethods);
 
     const checkoutBody = {
       eventId,
@@ -133,10 +168,15 @@ export default function(data) {
     );
 
     check(r5, {
-      "checkout status 200": (r) => r.status === 200 || r.status === 201,
-      "response has orderId": (r) => r.json("orderId") !== undefined || r.json("id") !== undefined,
+      "checkout status 201 OR 400": (r) => r.status === 201 || r.status === 400,
     });
   });
 
   sleep(Math.random() * 1 + 0.5);
+}
+
+export function handleSummary(data) {
+  return {
+    'summary-easy-ticket.html': htmlReport(data),
+  };
 }

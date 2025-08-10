@@ -8,7 +8,7 @@ services:
       - postgres
     volumes:
       - ./back-end:/home/root/app
-      - ./back-end/uploads:/home/root/app/logs
+      - private_node_modules:/home/root/app/node_modules
     ports:
       - 3000:3000
     env_file:
@@ -38,8 +38,6 @@ services:
       - back-end
     ports:
       - 80:80
-    volumes:
-      - ./front-end:/home/root/app
     env_file:
       - ./front-end/.env
     networks:
@@ -63,3 +61,4 @@ networks:
 
 volumes:
   postgres:
+  private_node_modules:
