@@ -7,7 +7,8 @@ import { Event } from "@/types/events";
 import { Formatter } from "@/utils/formatter";
 import { API } from "@/utils/api";
 import { toast } from "@/hooks/use-toast";
-import notFoundImage from "@/../public/not-fount.png"; // Placeholder image for not found events
+import notFoundImage from "@/../public/not-found.png";
+import { Spinner } from "@/components/ui/spinner";
 
 const EventDetails: React.FC = () => {
   const { id: eventId } = useParams();
@@ -15,11 +16,13 @@ const EventDetails: React.FC = () => {
   const navigate = useNavigate();
   const [event, setEvent] = useState<Event | null>(null);
   const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchEvent = async () => {
       if (!eventId) return;
 
+      setIsLoading(true);
       try {
         const url = API.getAPIUrl(`/public/events/${eventId}`);
 
@@ -53,13 +56,21 @@ const EventDetails: React.FC = () => {
           description: "Ocorreu um erro ao carregar os detalhes do evento. Tente novamente mais tarde.",
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchEvent();
   }, [eventId]);
 
-  if (!event) {
+  if (isLoading) {
+    return (
+      <Spinner />
+    )
+  }
+
+  if (!event && !isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

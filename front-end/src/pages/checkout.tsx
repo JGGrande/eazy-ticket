@@ -10,7 +10,8 @@ import { toast } from "@/hooks/use-toast";
 import { Event } from "@/types/events";
 import { API } from "@/utils/api";
 import { Formatter } from "@/utils/formatter";
-import notFoundImage from '/public/not-fount.png';
+import notFoundImage from '/public/not-found.png';
+import { Spinner } from "@/components/ui/spinner";
 
 const Checkout: React.FC = () => {
   const { eventId } = useParams();
@@ -24,6 +25,7 @@ const Checkout: React.FC = () => {
     const fetchEvent = async () => {
       if (!eventId) return;
 
+      setIsLoading(true);
       try {
         const response = await API.get(`/events/${eventId}`);
 
@@ -52,13 +54,21 @@ const Checkout: React.FC = () => {
           description: "Ocorreu um erro ao carregar os detalhes do evento. Tente novamente mais tarde.",
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchEvent();
   }, [eventId, ticketCount, paymentMethod]);
 
-  if (!event) {
+  if (isLoading) {
+    return (
+      <Spinner />
+    )
+  }
+
+  if (!event && !isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -145,7 +155,7 @@ const Checkout: React.FC = () => {
                   <h3 className="font-bold text-lg">{event.name}</h3>
                   <p className="text-gray-600">{event.location}</p>
                   <p className="text-primary font-semibold">
-                    {Formatter.currency(event.ticketPrice)}
+                    {Formatter.currency(event.ticketPrice )}
                   </p>
                 </div>
               </div>
