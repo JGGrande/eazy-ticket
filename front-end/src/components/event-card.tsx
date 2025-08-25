@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarDays, MapPin } from "lucide-react";
 import { Event } from "@/types/events";
 import { Formatter } from "@/utils/formatter";
-import notFoundImage from '@/../public/not-fount.png'; // Placeholder image for not found events
+import notFoundImage from '@/../public/not-found.png'; // Placeholder image for not found events
 
 interface EventCardProps {
   event: Event;

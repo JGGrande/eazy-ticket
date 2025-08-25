@@ -7,7 +7,8 @@ import { API } from "@/utils/api";
 import { Formatter } from "@/utils/formatter";
 import { CalendarDays, Hash, MapPin, Ticket } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import notFoundImage from '/public/not-fount.png';
+import notFoundImage from '/public/not-found.png';
+import { Spinner } from "@/components/ui/spinner";
 
 interface TicketType {
   id: string;
@@ -18,11 +19,13 @@ interface TicketType {
 const MyTickets: React.FC = () => {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<TicketType[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchTickets = async () => {
       if (!user) return;
 
+      setIsLoading(true);
       try {
         const response = await API.get(`/tickets`);
 
@@ -51,13 +54,21 @@ const MyTickets: React.FC = () => {
         });
 
         setTickets([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchTickets();
   }, [user]);
 
-  if (tickets.length === 0) {
+  if (isLoading) {
+    return (
+      <Spinner />
+    )
+  }
+
+  if (tickets.length === 0 && !isLoading) {
     return (
       <div className="min-h-screen py-8">
         <div className="container mx-auto px-4 max-w-4xl">

@@ -3,7 +3,8 @@ import { toast } from "@/hooks/use-toast";
 import { API_URL } from "@/config/env";
 import { Formatter } from "@/utils/formatter";
 import { User, UserWithToken } from "@/types/user";
-import { JWT_TOKEN, USER_TOKEN } from "@/config/ls-token";
+import { JWT_TOKEN, USER_TOKEN, JWT_EXPIRES_AT } from "@/config/ls-token";
+import { jwtDecode } from "jwt-decode";
 
 type AuthContextType = {
   user: User | null;
@@ -31,7 +32,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const tokenExpiry = localStorage.getItem(JWT_EXPIRES_AT);
     const savedUser = localStorage.getItem(USER_TOKEN);
+
+    const tokenHasExpired = tokenExpiry && new Date(tokenExpiry) < new Date();
+
+    if (tokenHasExpired) {
+      logout();
+      setIsLoading(false);
+      return;
+    }
 
     if (savedUser) {
       setUser(JSON.parse(savedUser));
@@ -76,8 +86,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email: responseBody.email,
       }
 
+      const { exp } = jwtDecode(responseBody.token);
+      const jwtExpiresAt = new Date(exp * 1000).toISOString();
+
       localStorage.setItem(USER_TOKEN, JSON.stringify(userPersistentData));
       localStorage.setItem(JWT_TOKEN, responseBody.token);
+      localStorage.setItem(JWT_EXPIRES_AT, jwtExpiresAt);
 
       toast({
         title: "Login realizado com sucesso!",
@@ -137,8 +151,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email: responseBody.email,
       }
 
+      const { exp } = jwtDecode(responseBody.token);
+      const jwtExpiresAt = new Date(exp * 1000).toISOString();
+
       localStorage.setItem(USER_TOKEN, JSON.stringify(userPersistentData));
       localStorage.setItem(JWT_TOKEN, responseBody.token);
+      localStorage.setItem(JWT_EXPIRES_AT, jwtExpiresAt);
 
       toast({
         title: "Cadastro realizado com sucesso!",
@@ -164,6 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     localStorage.removeItem(USER_TOKEN);
     localStorage.removeItem(JWT_TOKEN);
+    localStorage.removeItem(JWT_EXPIRES_AT);
 
     toast({
       title: "Logout realizado",

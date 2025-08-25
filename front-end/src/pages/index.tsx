@@ -6,10 +6,12 @@ import { Event } from "@/types/events";
 import { API } from "@/utils/api";
 import { toast } from "@/hooks/use-toast";
 import { Formatter } from "@/utils/formatter";
+import { Spinner } from "@/components/ui/spinner";
 
 const Index: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
@@ -20,8 +22,13 @@ const Index: React.FC = () => {
     });
   }, [events, searchTerm]);
 
+  const noEventsFound = events.length === 0 && !isLoading;
+
+  const hasEvents = events.length > 0;
+
   const fetchEvents = async () => {
     try {
+      setIsLoading(true);
       const url = API.getAPIUrl("/public/events");
 
       const response = await fetch(url, {
@@ -56,6 +63,8 @@ const Index: React.FC = () => {
       });
 
       setEvents([]);
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -94,13 +103,17 @@ const Index: React.FC = () => {
             Eventos Disponíveis
           </h2>
 
-          {events.length > 0 ? (
+          {isLoading && <Spinner />}
+
+          {hasEvents && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {(searchTerm ? filteredEvents : events).map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
-          ) : (
+          )}
+
+          {noEventsFound && (
             <div className="text-center py-12">
               <p className="text-xl text-gray-600">Nenhum evento encontrado</p>
               <p className="text-gray-500">Tente alterar o termo de busca</p>

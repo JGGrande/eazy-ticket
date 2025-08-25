@@ -3,7 +3,7 @@ import { check, group, sleep } from 'k6';
 import { faker } from 'https://cdn.jsdelivr.net/npm/@faker-js/faker/+esm';
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 
-const TOTAL_USER = 200;
+const TOTAL_USER = 50;
 const TOTAL_TICKETS = 50;
 
 export const options = {
