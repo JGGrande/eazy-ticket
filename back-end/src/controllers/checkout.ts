@@ -42,9 +42,13 @@ export class CheckoutController {
           .limit(1);
 
         if (eventData.length === 0) {
-          return res.status(404).json({
-            error: "Event not found",
-          });
+          return {
+            message: "Event not found",
+            statusCode: 404,
+            totalPrice: 0,
+            paymentMethod: null,
+            tickets: [],
+          };
         }
 
         const [event] = eventData;
@@ -52,9 +56,13 @@ export class CheckoutController {
         const eventHasStarted = DateUtils.isPast(event.initialDate);
 
         if (eventHasStarted) {
-          return res.status(400).json({
-            error: "Event has already started",
-          });
+          return {
+            message: "Event has already started",
+            statusCode: 400,
+            totalPrice: 0,
+            paymentMethod: null,
+            tickets: [],
+          };
         }
 
         const ticketSoldQuantity = await tx.$count(TicketModel, eq(TicketModel.eventId, eventId));
@@ -62,9 +70,13 @@ export class CheckoutController {
         const ticketsAvailable = event.maxTickets - ticketSoldQuantity
 
         if (ticketCount > ticketsAvailable) {
-          return res.status(400).json({
-            error: `Only ${ticketsAvailable} tickets available for this event`,
-          });
+          return {
+            message: `Only ${ticketsAvailable} tickets available for this event`,
+            statusCode: 400,
+            totalPrice: 0,
+            paymentMethod: null,
+            tickets: [],
+          };
         }
 
         const totalTicketPrice = event.ticketPrice * ticketCount;
@@ -83,6 +95,7 @@ export class CheckoutController {
 
         return {
           message: "Tickets purchased successfully",
+          statusCode: 201,
           totalPrice: totalTicketPrice,
           paymentMethod,
           tickets,
@@ -91,7 +104,7 @@ export class CheckoutController {
         isolationLevel: "repeatable read",
       });
 
-      return res.status(201).json(result);
+      return res.status(result.statusCode).json(result);
     }catch (error) {
       throw error;
     }
