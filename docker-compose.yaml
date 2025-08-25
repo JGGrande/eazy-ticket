@@ -1,5 +1,5 @@
 services:
-  back-end-01: &back-end
+  back-end-01:
     hostname: back-end-01
     build:
       context: .
@@ -10,18 +10,30 @@ services:
     volumes:
       - ./back-end:/home/root/app
       - private_node_modules:/home/root/app/node_modules
+    ports:
+      - 3001:3000
     env_file:
       - ./back-end/.env
     networks:
       - internal
 
   back-end-02:
-    <<: *back-end
     hostname: back-end-02
-
-  back-end-03:
-    <<: *back-end
-    hostname: back-end-03
+    build:
+      context: .
+      dockerfile: ./back-end/Dockerfile
+    restart: on-failure
+    depends_on:
+      - postgres
+    volumes:
+      - ./back-end:/home/root/app
+      - private_node_modules:/home/root/app/node_modules
+    ports:
+      - 3002:3000
+    env_file:
+      - ./back-end/.env
+    networks:
+      - internal
 
   load-balancer:
     image: nginx:latest
@@ -29,7 +41,6 @@ services:
     depends_on:
       - back-end-01
       - back-end-02
-      - back-end-03
     ports:
       - 80:80
     volumes:
