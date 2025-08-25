@@ -17,6 +17,13 @@ app.use(cors({ origin: "*" }));
 app.use(express.json({ limit: '5mb' }));
 app.use('/uploads', express.static('uploads'))
 
+app.get('/health', (req, res) =>
+  res.json({
+    status: 'OK',
+    PID: process.pid,
+  })
+);
+
 app.use('/auth', authRouter);
 app.use('/public', publicRouter);
 app.use(CustomerAuthorizationMiddleware);
