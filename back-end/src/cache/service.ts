@@ -9,7 +9,7 @@ export class CacheService {
     await redisClient.set(key, value, {
       expiration: {
         type: 'EX',
-        value: ttl * 1000, // milliseconds
+        value: ttl, // milliseconds
       }
     });
   }
