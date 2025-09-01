@@ -9,6 +9,7 @@ const envSchema = z.object({
   PASSWORD_SALT_ROUNDS: z.coerce.number(),
   JWT_SECRET: z.string(),
   JWT_EXPIRATION: z.string(),
+  REDIS_URL: z.string().url().default("redis://localhost:6379"),
 });
 
 const _env = envSchema.safeParse(process.env);

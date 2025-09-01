@@ -8,6 +8,7 @@ import { TicketModel } from "../models/ticket";
 import { DateUtils } from "../utils/date";
 import { FileUtils } from "../utils/file";
 import { ParamsUtils } from "../utils/params";
+import { CacheService } from "../cache/service";
 
 export class EventController {
   public async create(req: Request, res: Response): Promise<Response> {
@@ -119,6 +120,14 @@ export class EventController {
   }
 
   public async findAll(req: Request, res: Response): Promise<Response> {
+    const cacheService = new CacheService();
+    const cacheKey = 'events';
+    const eventCached = await cacheService.get(cacheKey);
+
+    if (eventCached) {
+      return res.status(200).json(JSON.parse(eventCached));
+    }
+
     const queryParamsSchema = z.object({
       withExpired: z
         .string()
@@ -150,6 +159,8 @@ export class EventController {
       )
       .groupBy(EventModel.id)
       .orderBy(asc(EventModel.initialDate));
+
+    await cacheService.set(cacheKey, JSON.stringify(events));
 
     return res.status(200).json(events);
   }

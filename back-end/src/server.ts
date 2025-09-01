@@ -10,6 +10,7 @@ import { eventRouter } from './routes/event';
 import { checkoutRouter } from './routes/checkout';
 import { publicRouter } from './routes/public';
 import { ticketRouter } from './routes/ticket';
+import { CacheService } from './cache/service';
 
 const app = express();
 
@@ -17,12 +18,16 @@ app.use(cors({ origin: "*" }));
 app.use(express.json({ limit: '5mb' }));
 app.use('/uploads', express.static('uploads'))
 
-app.get('/health', (req, res) =>
+app.get('/health', async (req, res) => {
+  const cacheService = new CacheService();
+
+  await cacheService.set('health_check', new Date().toISOString(), 10);
+
   res.json({
     status: 'OK',
     PID: process.pid,
-  })
-);
+  });
+});
 
 app.use('/auth', authRouter);
 app.use('/public', publicRouter);
