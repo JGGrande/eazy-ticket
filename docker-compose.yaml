@@ -48,6 +48,13 @@ services:
     networks:
       - internal
 
+  redis:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    networks:
+      - internal
+
   postgres:
     image: postgres
     environment:
