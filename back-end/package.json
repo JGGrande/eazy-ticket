@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node -r ./otel.js build/server.js",
+    "start": "node build/server.js",
     "build": "tsup src --out-dir build",
     "start:dev": "tsx watch src/server.ts",
     "migrate:generate": "drizzle-kit generate --name",
@@ -28,11 +28,6 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.62.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.203.0",
-    "@opentelemetry/sdk-node": "^0.203.0",
-    "@opentelemetry/sdk-trace-node": "^2.0.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -42,7 +37,6 @@
     "jsonwebtoken": "^8.5.1",
     "multer": "^2.0.1",
     "pg": "^8.16.0",
-    "redis": "^5.8.2",
     "zod": "^3.25.51"
   }
 }
