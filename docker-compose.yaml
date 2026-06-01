@@ -18,7 +18,7 @@ services:
       - internal
 
   postgres:
-    image: postgres
+    image: postgres:17
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
