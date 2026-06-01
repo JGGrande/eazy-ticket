@@ -18,7 +18,7 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost";
+const API_BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
 
 const paymentMethods = ["credit_card", "debit_card", "pix"];
 
@@ -30,7 +30,7 @@ function getToken() {
   };
 
   const adminLogin = http.post(
-    `${BASE_URL}/auth/customer/login`, 
+    `${API_BASE_URL}/auth/customer/login`, 
     JSON.stringify(adminUser), 
     { headers: { "Content-Type": "application/json" } }
   );
@@ -40,7 +40,7 @@ function getToken() {
   }
 
   const adminRes = http.post(
-    `${BASE_URL}/auth/customer/register`,
+    `${API_BASE_URL}/auth/customer/register`,
     JSON.stringify(adminUser),
     { headers: { "Content-Type": "application/json" } }
   );
@@ -76,7 +76,7 @@ export function setup() {
     ticketPrice: faker.number.int({ min: 10, max: 100 }),
   };
 
-  const res = http.post(`${BASE_URL}/events`, JSON.stringify(eventBody), {
+  const res = http.post(`${API_BASE_URL}/events`, JSON.stringify(eventBody), {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${adminToken}`,
@@ -107,7 +107,7 @@ export default function(data) {
   let token = null;
 
   group("Fluxo de usuário", () => {
-    const r1 = http.get(`${BASE_URL}/public/events`);
+    const r1 = http.get(`${API_BASE_URL}/public/events`);
 
     check(r1, {
       "home ok": (r) => r.status === 200,
@@ -120,7 +120,7 @@ export default function(data) {
     }
 
     const r2 = http.post(
-      `${BASE_URL}/auth/customer/register`,
+      `${API_BASE_URL}/auth/customer/register`,
       JSON.stringify(user),
       { headers: { "Content-Type": "application/json" } }
     );
@@ -139,13 +139,13 @@ export default function(data) {
       },
     };
 
-    const r3 = http.get(`${BASE_URL}/events`, authHeaders);
+    const r3 = http.get(`${API_BASE_URL}/events`, authHeaders);
 
     check(r3, {
       "home (autenticado) ok": (r) => r.status === 200,
     });
 
-    const r4 = http.get(`${BASE_URL}/events/${eventId}`, authHeaders);
+    const r4 = http.get(`${API_BASE_URL}/events/${eventId}`, authHeaders);
 
     check(r4, {
       "event found": (r) => r.status === 200,
@@ -162,7 +162,7 @@ export default function(data) {
     };
 
     const r5 = http.post(
-      `${BASE_URL}/checkout`,
+      `${API_BASE_URL}/checkout`,
       JSON.stringify(checkoutBody),
       authHeaders
     );
