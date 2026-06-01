@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { ParamsUtils } from "../utils/params";
 import { db } from "../config/database";
+import { logger } from "../config/logger";
 import { TicketModel } from "../models/ticket";
 import { EventModel } from "../models/event";
 import { eq, sql } from "drizzle-orm";
@@ -45,6 +46,7 @@ export class TicketController {
         EventModel.ticketPrice
       );
 
+    logger.info("Tickets fetched for customer", { customerId, count: tickets.length });
     return res.status(200).json(tickets);
 
   }

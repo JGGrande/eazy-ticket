@@ -2,6 +2,7 @@ import { asc, eq, gte, sql } from "drizzle-orm";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { db } from "../config/database";
+import { logger } from "../config/logger";
 import { EventModel } from "../models/event";
 import { EventPhotoModel } from "../models/event-photo";
 import { TicketModel } from "../models/ticket";
@@ -84,6 +85,7 @@ export class EventController {
       });
     }
 
+    logger.info("Event created", { eventId: newEvent[0].id, name: newEvent[0].name });
     return res.status(201).json(newEvent[0]);
   }
 
@@ -269,6 +271,7 @@ export class EventController {
       });
     }
 
+    logger.info("Event updated", { eventId: updatedEvent[0].id, name: updatedEvent[0].name });
     return res.status(200).json(updatedEvent[0]);
   }
 
@@ -310,6 +313,7 @@ export class EventController {
 
     await db.delete(EventModel).where(eq(EventModel.id, id));
 
+    logger.info("Event deleted", { eventId: id });
     return res.status(204).send();
   }
 
@@ -334,6 +338,7 @@ export class EventController {
       url: fileUrl,
     });
 
+    logger.info("Image added to event", { eventId, fileName });
     return res.sendStatus(204);
   }
 
@@ -366,6 +371,7 @@ export class EventController {
 
     await db.delete(EventPhotoModel).where(eq(EventPhotoModel.id, imageId));
 
+    logger.info("Image removed from event", { imageId, eventId: photo.eventId });
     return res.sendStatus(204);
   }
 }

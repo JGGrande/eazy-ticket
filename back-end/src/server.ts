@@ -4,6 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { collectDefaultMetrics, register } from 'prom-client'; // collectDefaultMetrics: coleta CPU, memória e event loop do Node automaticamente | register: agrega todas as métricas
 import { env } from './config/env';
+import { logger } from './config/logger';
 import { customerRouter } from './routes/customer';
 import { ErrorHandlerMiddleware } from './middlewares/errors';
 import { HttpMetricsMiddleware } from './middlewares/http-metrics';
@@ -46,5 +47,5 @@ app.use('/checkout', checkoutRouter);
 app.use(ErrorHandlerMiddleware);
 
 app.listen(env.API_PORT, () => {
-  console.info(`Server is running on port ${env.API_PORT}`);
+  logger.info(`Server is running on port ${env.API_PORT}`);
 });

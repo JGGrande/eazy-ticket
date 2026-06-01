@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { db } from "../config/database";
 import { EventModel } from "../models/event";
+import { logger } from "../config/logger";
 import { eq, sql } from "drizzle-orm";
 import { DateUtils } from "../utils/date";
 import { TicketModel } from "../models/ticket";
@@ -42,6 +43,7 @@ export class CheckoutController {
           .limit(1);
 
         if (eventData.length === 0) {
+          logger.warn("Checkout failed: event not found", { eventId, customerId });
           return {
             message: "Event not found",
             statusCode: 404,
@@ -56,6 +58,7 @@ export class CheckoutController {
         const eventHasStarted = DateUtils.isPast(event.initialDate);
 
         if (eventHasStarted) {
+          logger.warn("Checkout failed: event has already started", { eventId, customerId });
           return {
             message: "Event has already started",
             statusCode: 400,
@@ -70,6 +73,7 @@ export class CheckoutController {
         const ticketsAvailable = event.maxTickets - ticketSoldQuantity
 
         if (ticketCount > ticketsAvailable) {
+          logger.warn("Checkout failed: not enough tickets available", { eventId, customerId, requested: ticketCount, available: ticketsAvailable });
           return {
             message: `Only ${ticketsAvailable} tickets available for this event`,
             statusCode: 400,
@@ -93,6 +97,7 @@ export class CheckoutController {
 
         await tx.insert(TicketModel).values(tickets);
 
+        logger.info("Tickets purchased", { eventId, customerId, ticketCount, totalPrice: totalTicketPrice, paymentMethod });
         return {
           message: "Tickets purchased successfully",
           statusCode: 201,
