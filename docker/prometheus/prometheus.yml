@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s     # Prometheus faz scrape a cada 15 segundos
+  evaluation_interval: 15s # Avalia regras de alertas a cada 15 segundos
+
+scrape_configs:
+  - job_name: "back-end"
+    static_configs:
+      - targets: ["back-end:3000"] # Endereço do serviço dentro da rede Docker
+    metrics_path: /metrics         # Endpoint onde o app expõe as métricas

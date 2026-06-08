@@ -1,0 +1,21 @@
+stream_over_http_enabled: true # Habilita streaming de traces via HTTP (necessário para o Grafana consultar traces em tempo real)
+
+server:
+  http_listen_port: 3200 # Porta da API HTTP do Tempo — usada pelo Grafana para consultar traces
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: "0.0.0.0:4318" # Porta HTTP OTLP — onde o app envia os traces
+        grpc:
+          endpoint: "0.0.0.0:4317" # Porta gRPC OTLP — alternativa mais performática ao HTTP
+
+storage:
+  trace:
+    backend: local           # Armazenamento local (para desenvolvimento — em prod usaria S3, GCS, etc.)
+    local:
+      path: /var/tempo/traces # Diretório onde os blocos de traces finalizados são salvos
+    wal:
+      path: /var/tempo/wal    # Write-Ahead Log — traces ficam aqui antes de serem consolidados em blocos

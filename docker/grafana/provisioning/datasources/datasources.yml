@@ -1,0 +1,36 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus        # UID fixo — permite referenciar em dashboards sem depender do nome
+    url: http://prometheus:9090
+    isDefault: true        # Datasource padrão ao abrir o Grafana
+    editable: false
+
+  - name: Loki
+    type: loki
+    uid: loki
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"traceId":"(\w+)"'
+          url: "$${__value.raw}"
+          datasourceUid: tempo  # Navega do log para o trace correspondente no Tempo
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    url: http://tempo:3200 # API do Tempo para consultas de traces
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki   # Navega do trace para os logs correspondentes no Loki
+        filterByTraceID: true
+        filterBySpanID: false
+      serviceMap:
+        datasourceUid: prometheus # Liga o Service Map do Tempo às métricas do Prometheus
+      nodeGraph:
+        enabled: true             # Habilita visualização de grafo de dependências entre serviços

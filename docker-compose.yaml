@@ -14,8 +14,15 @@ services:
       - 3000:3000
     env_file:
       - ./back-end/.env
+    environment:
+      - OTEL_SERVICE_NAME=eazy-ticket-back-end
     networks:
       - internal
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.25"
+    #       memory: 256M
 
   postgres:
     image: postgres:17
@@ -44,10 +51,72 @@ services:
     networks:
       - internal
 
+  prometheus:
+    image: prom/prometheus:latest
+    restart: on-failure
+    depends_on:
+      - back-end
+    ports:
+      - 9090:9090
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus:/prometheus
+    networks:
+      - internal
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: on-failure
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    ports:
+      - 3001:3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - internal
+
+  tempo:
+    image: grafana/tempo:latest
+    restart: on-failure
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    ports:
+      - 3200:3200
+      - 4317:4317
+      - 4318:4318
+    volumes:
+      - ./docker/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo:/var/tempo
+    networks:
+      - internal
+
+  loki:
+    image: grafana/loki:latest
+    restart: on-failure
+    user: "0"
+    command: ["-config.file=/etc/loki/loki.yml"]
+    ports:
+      - 3100:3100
+    volumes:
+      - ./docker/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki:/var/loki
+    networks:
+      - internal
+
 networks:
   internal:
     driver: bridge
 
 volumes:
   postgres:
+  prometheus:
+  grafana:
+  tempo:
+  loki:
   private_node_modules:

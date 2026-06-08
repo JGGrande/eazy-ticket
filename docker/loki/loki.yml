@@ -1,0 +1,28 @@
+auth_enabled: false # Desativa autenticação multi-tenant — adequado para ambiente local/desenvolvimento
+
+server:
+  http_listen_port: 3100 # Porta HTTP onde o Loki expõe sua API (ingestão de logs e consultas)
+
+common:
+  path_prefix: /var/loki # Diretório raiz onde o Loki armazena todos os seus dados dentro do container
+  storage:
+    filesystem:
+      chunks_directory: /var/loki/chunks # Onde os blocos de logs comprimidos são persistidos
+      rules_directory: /var/loki/rules   # Onde as regras de alertas do ruler são armazenadas
+  replication_factor: 1 # Número de réplicas dos dados — 1 é suficiente para ambiente single-node
+  ring:
+    kvstore:
+      store: inmemory # Armazena o estado do anel de hash em memória — sem necessidade de etcd/consul em single-node
+
+schema_config:
+  configs:
+    - from: 2020-10-24       # Data a partir da qual este schema passa a ser usado
+      store: tsdb            # Engine de índice — TSDB é o mais eficiente nas versões recentes do Loki
+      object_store: filesystem # Armazena os chunks no sistema de arquivos local (em vez de S3, GCS etc.)
+      schema: v13            # Versão do schema de índice — v13 é a versão recomendada para Loki 3.x
+      index:
+        prefix: index_       # Prefixo dos arquivos de índice gerados pelo TSDB
+        period: 24h          # Cria um novo arquivo de índice a cada 24 horas
+
+limits_config:
+  volume_enabled: true # Habilita o endpoint /loki/api/v1/index/volume — necessário para o histograma "Log volume" no Grafana Explore
