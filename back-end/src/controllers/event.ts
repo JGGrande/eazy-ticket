@@ -1,319 +1,79 @@
-import { asc, eq, gte, sql } from "drizzle-orm";
 import { Request, Response } from "express";
 import { z } from "zod";
-import { db } from "../config/database";
-import { logger } from "../config/logger";
-import { EventModel } from "../models/event";
-import { EventPhotoModel } from "../models/event-photo";
-import { TicketModel } from "../models/ticket";
-import { DateUtils } from "../utils/date";
-import { FileUtils } from "../utils/file";
+import { EventService } from "../services/event.service";
 import { ParamsUtils } from "../utils/params";
 
+const eventSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required")
+    .max(100, "Name must be at most 100 characters long"),
+  description: z
+    .string()
+    .trim()
+    .min(1, "Description is required")
+    .max(500, "Description must be at most 500 characters long"),
+  location: z
+    .string()
+    .trim()
+    .min(1, "Location is required")
+    .max(200, "Location must be at most 200 characters long"),
+  initialDate: z
+    .string()
+    .datetime({ offset: true, message: "Invalid initial date format" })
+    .transform(date => new Date(date)),
+  finalDate: z
+    .string()
+    .datetime({ offset: true, message: "Invalid final date format" })
+    .transform(date => new Date(date)),
+  maxTickets: z
+    .number()
+    .int("Max tickets must be an integer")
+    .positive("Max tickets must be a positive number"),
+  ticketPrice: z
+    .number()
+    .nonnegative("Ticket price cannot be negative"),
+});
+
 export class EventController {
+  constructor(private readonly eventService: EventService) {}
+
   public async create(req: Request, res: Response): Promise<Response> {
-    const createEventSchema = z.object({
-      name: z
-        .string()
-        .trim()
-        .min(1, "Name is required")
-        .max(100, "Name must be at most 100 characters long"),
-      description: z
-        .string()
-        .trim()
-        .min(1, "Description is required")
-        .max(500, "Description must be at most 500 characters long"),
-      location: z
-        .string()
-        .trim()
-        .min(1, "Location is required")
-        .max(200, "Location must be at most 200 characters long"),
-      initialDate: z
-        .string()
-        .datetime({ offset: true, message: "Invalid initial date format" })
-        .transform(date => new Date(date)),
-      finalDate: z
-        .string()
-        .datetime({ offset: true, message: "Invalid final date format" })
-        .transform(date => new Date(date)),
-      maxTickets: z
-        .number()
-        .int("Max tickets must be an integer")
-        .positive("Max tickets must be a positive number"),
-      ticketPrice: z
-        .number()
-        .nonnegative("Ticket price cannot be negative"),
-    });
-
-    const eventRequestBody = createEventSchema.parse(req.body);
-
-    const initialDateIsPast = DateUtils.isPast(eventRequestBody.initialDate);
-
-    if(initialDateIsPast) {
-      return res.status(400).json({
-        error: "Initial date cannot be in the past",
-      });
-    }
-
-    const finalDateIsBeforeInitial = DateUtils.isBefore(
-      eventRequestBody.finalDate,
-      eventRequestBody.initialDate
-    );
-
-    if(finalDateIsBeforeInitial) {
-      return res.status(400).json({
-        error: "Final date must be after initial date",
-      });
-    }
-
-    const newEvent = await db
-      .insert(EventModel)
-      .values({
-        name: eventRequestBody.name,
-        description: eventRequestBody.description,
-        location: eventRequestBody.location,
-        initialDate: eventRequestBody.initialDate,
-        finalDate: eventRequestBody.finalDate,
-        maxTickets: eventRequestBody.maxTickets,
-        ticketPrice: eventRequestBody.ticketPrice,
-      })
-      .returning();
-
-    if (newEvent.length === 0) {
-      return res.status(500).json({
-        error: "Failed to create event",
-      });
-    }
-
-    logger.info("Event created", { eventId: newEvent[0].id, name: newEvent[0].name });
-    return res.status(201).json(newEvent[0]);
+    const body = eventSchema.parse(req.body);
+    const event = await this.eventService.create(body);
+    return res.status(201).json(event);
   }
 
   public async findById(req: Request, res: Response): Promise<Response> {
     const id = ParamsUtils.getId(req);
-
-    const event = await db
-      .select({
-        id: EventModel.id,
-        name: EventModel.name,
-        description: EventModel.description,
-        initialDate: EventModel.initialDate,
-        finalDate: EventModel.finalDate,
-        location: EventModel.location,
-        maxTickets: EventModel.maxTickets,
-        ticketPrice: EventModel.ticketPrice,
-
-        photos: sql`COALESCE(array_agg(${EventPhotoModel.url}) FILTER (WHERE ${EventPhotoModel.url} IS NOT NULL), '{}')`.as("photos"),
-      })
-      .from(EventModel)
-      .leftJoin(EventPhotoModel, eq(EventPhotoModel.eventId, EventModel.id))
-      .where(eq(EventModel.id, id))
-      .groupBy(EventModel.id)
-      .limit(1);
-
-    if (event.length === 0) {
-      return res.status(404).json({
-        error: "Event not found",
-      });
-    }
-
-    return res.status(200).json(event[0]);
+    const event = await this.eventService.findById(id);
+    return res.status(200).json(event);
   }
 
   public async findAll(req: Request, res: Response): Promise<Response> {
-    const queryParamsSchema = z.object({
+    const querySchema = z.object({
       withExpired: z
         .string()
         .optional()
         .transform(value => value === "true"),
     });
 
-    const { withExpired } = queryParamsSchema.parse(req.query);
-
-    const events = await db
-      .select({
-        id: EventModel.id,
-        name: EventModel.name,
-        description: EventModel.description,
-        initialDate: EventModel.initialDate,
-        finalDate: EventModel.finalDate,
-        location: EventModel.location,
-        maxTickets: EventModel.maxTickets,
-        ticketPrice: EventModel.ticketPrice,
-
-        photos: sql`COALESCE(array_agg(${EventPhotoModel.url}) FILTER (WHERE ${EventPhotoModel.url} IS NOT NULL), '{}')`.as("photos"),
-      })
-      .from(EventModel)
-      .leftJoin(EventPhotoModel, eq(EventPhotoModel.eventId, EventModel.id))
-      .where(
-        !withExpired
-          ? gte(EventModel.initialDate, new Date())
-          : undefined
-      )
-      .groupBy(EventModel.id)
-      .orderBy(asc(EventModel.initialDate));
-
+    const { withExpired } = querySchema.parse(req.query);
+    const events = await this.eventService.findAll(withExpired);
     return res.status(200).json(events);
   }
 
   public async update(req: Request, res: Response): Promise<Response> {
     const id = ParamsUtils.getId(req);
-
-    const updateEventSchema = z.object({
-      name: z
-        .string()
-        .trim()
-        .min(1, "Name is required")
-        .max(100, "Name must be at most 100 characters long"),
-      description: z
-        .string()
-        .trim()
-        .min(1, "Description is required")
-        .max(500, "Description must be at most 500 characters long"),
-      location: z
-        .string()
-        .trim()
-        .min(1, "Location is required")
-        .max(200, "Location must be at most 200 characters long"),
-      initialDate: z
-        .string()
-        .datetime({ offset: true, message: "Invalid initial date format" })
-        .transform(date => new Date(date)),
-      finalDate: z
-        .string()
-        .datetime({ offset: true, message: "Invalid final date format" })
-        .transform(date => new Date(date)),
-      maxTickets: z
-        .number()
-        .int("Max tickets must be an integer")
-        .positive("Max tickets must be a positive number"),
-      ticketPrice: z
-        .number()
-        .nonnegative("Ticket price cannot be negative"),
-    });
-
-    const eventRequestBody = updateEventSchema.parse(req.body);
-
-    const eventIsFinished = DateUtils.isPast(eventRequestBody.finalDate);
-
-    if (eventIsFinished) {
-      return res.status(400).json({
-        error: "Event cannot be updated because it has already finished",
-      });
-    }
-
-    const initialDateIsPast = DateUtils.isPast(eventRequestBody.initialDate);
-
-    if(initialDateIsPast) {
-      return res.status(400).json({
-        error: "Initial date cannot be in the past",
-      });
-    }
-
-    const finalDateIsBeforeInitial = DateUtils.isBefore(
-      eventRequestBody.finalDate,
-      eventRequestBody.initialDate
-    );
-
-    if(finalDateIsBeforeInitial) {
-      return res.status(400).json({
-        error: "Final date must be after initial date",
-      });
-    }
-
-    const existingEvent = await db
-      .select()
-      .from(EventModel)
-      .where(eq(EventModel.id, id))
-      .limit(1);
-
-    if (existingEvent.length === 0) {
-      return res.status(404).json({
-        error: "Event not found",
-      });
-    }
-
-    const totalEventTickets = await db.$count(TicketModel, eq(TicketModel.eventId, id));
-
-    if (eventRequestBody.maxTickets < totalEventTickets) {
-      return res.status(400).json({
-        error: "Cannot update event because the new max tickets is less than the total tickets sold",
-      });
-    }
-
-    const [ event ] = existingEvent;
-
-    event.name = eventRequestBody.name;
-    event.description = eventRequestBody.description;
-    event.location = eventRequestBody.location;
-    event.initialDate = eventRequestBody.initialDate;
-    event.finalDate = eventRequestBody.finalDate;
-    event.maxTickets = eventRequestBody.maxTickets;
-    event.ticketPrice = eventRequestBody.ticketPrice;
-
-    const updatedEvent = await db
-      .update(EventModel)
-      .set({
-        name: event.name,
-        description: event.description,
-        location: event.location,
-        initialDate: event.initialDate,
-        finalDate: event.finalDate,
-        maxTickets: event.maxTickets,
-        ticketPrice: event.ticketPrice,
-      })
-      .where(eq(EventModel.id, id))
-      .returning();
-
-    if (updatedEvent.length === 0) {
-      return res.status(500).json({
-        error: "Failed to update event",
-      });
-    }
-
-    logger.info("Event updated", { eventId: updatedEvent[0].id, name: updatedEvent[0].name });
-    return res.status(200).json(updatedEvent[0]);
+    const body = eventSchema.parse(req.body);
+    const event = await this.eventService.update(id, body);
+    return res.status(200).json(event);
   }
 
   public async delete(req: Request, res: Response): Promise<Response> {
     const id = ParamsUtils.getId(req);
-
-    const existingEvent = await db
-      .select({
-        id: EventModel.id,
-        finalDate: EventModel.finalDate,
-      })
-      .from(EventModel)
-      .where(eq(EventModel.id, id))
-      .limit(1);
-
-    if (existingEvent.length === 0) {
-      return res.status(404).json({
-        error: "Event not found",
-      });
-    }
-
-    const [ event ] = existingEvent;
-
-    const eventIsFinished = DateUtils.isPast(event.finalDate);
-
-    if (eventIsFinished) {
-      return res.status(400).json({
-        error: "Event cannot be deleted because it has already finished",
-      });
-    }
-
-    const totalEventTickets = await db.$count(TicketModel, eq(TicketModel.eventId, id));
-
-    if (totalEventTickets > 0) {
-      return res.status(400).json({
-        error: "Cannot delete event because it has tickets sold",
-      });
-    }
-
-    await db.delete(EventModel).where(eq(EventModel.id, id));
-
-    logger.info("Event deleted", { eventId: id });
+    await this.eventService.delete(id);
     return res.status(204).send();
   }
 
@@ -321,24 +81,10 @@ export class EventController {
     const eventId = ParamsUtils.getId(req);
 
     if (!req.file) {
-      return res.status(400).json({
-        error: "Image file is required",
-      });
+      return res.status(400).json({ error: "Image file is required" });
     }
 
-    const fileName = FileUtils.getFileName(req.file);
-    const filePath = FileUtils.getFilePath(fileName);
-    const fileUrl = FileUtils.getFileUrl(filePath);
-
-    await FileUtils.save(filePath, req.file.buffer);
-
-    await db.insert(EventPhotoModel).values({
-      eventId: eventId,
-      fileName: fileName,
-      url: fileUrl,
-    });
-
-    logger.info("Image added to event", { eventId, fileName });
+    await this.eventService.addImage(eventId, req.file);
     return res.sendStatus(204);
   }
 
@@ -352,26 +98,7 @@ export class EventController {
     });
 
     const { imageId } = removeImageSchema.parse(req.params);
-
-    const existingPhoto = await db
-      .select()
-      .from(EventPhotoModel)
-      .where(eq(EventPhotoModel.id, imageId))
-      .limit(1);
-
-    if (existingPhoto.length === 0) {
-      return res.status(404).json({
-        error: "Event photo not found",
-      });
-    }
-
-    const [ photo ] = existingPhoto;
-
-    await FileUtils.delete(photo.url);
-
-    await db.delete(EventPhotoModel).where(eq(EventPhotoModel.id, imageId));
-
-    logger.info("Image removed from event", { imageId, eventId: photo.eventId });
+    await this.eventService.removeImage(imageId);
     return res.sendStatus(204);
   }
 }
